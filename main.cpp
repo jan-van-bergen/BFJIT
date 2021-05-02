@@ -44,7 +44,6 @@ static void compile(char const * source) {
 	struct Branch {
 		uint32_t offset_src;
 		uint32_t offset_dst;
-		uint8_t * sentinel;
 	};
 	Branch branch_stack[256] = { };
 	size_t branch_stack_size = 0;
@@ -123,7 +122,8 @@ static void compile(char const * source) {
 				emit(0x84); emit(0xc0); // test al, al
 				emit(0x0f); emit(0x84); // jz
 				auto offset_dst = get_code_offset();
-				branch_stack[branch_stack_size++] = { offset_src, offset_dst, code_buffer_head };
+				branch_stack[branch_stack_size++] = { offset_src, offset_dst };
+				// Emit temporary zero, will later be replaced (see below)
 				emit32(0);
 				cur++;
 				break;
@@ -133,9 +133,9 @@ static void compile(char const * source) {
 				assert(branch_stack_size > 0);
 				auto branch = branch_stack[--branch_stack_size];
 				emit32(branch.offset_src - get_code_offset() - 4);
-				// Replace sentinel jump target
+				// Replace temporary zero jump target
 				auto rel32 = get_code_offset() - branch.offset_dst - 4;
-				memcpy(branch.sentinel, &rel32, sizeof(uint32_t));
+				memcpy(code_buffer_base + branch.offset_dst, &rel32, sizeof(uint32_t));
 				cur++;
 				break;
 			}
