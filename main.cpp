@@ -4,8 +4,6 @@
 
 #include <Windows.h>
 
-//#include "codegen.h"
-
 static uint8_t * code_buffer_base;
 static uint8_t * code_buffer_head;
 
