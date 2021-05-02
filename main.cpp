@@ -49,11 +49,11 @@ static void compile(char const * source) {
 	Branch branch_stack[256] = { };
 	size_t branch_stack_size = 0;
 
+	// Initialization
+	emit(0x48); emit(0x83); emit(0xec); emit(0x20); // sub rsp, 32 ; shadow space
 	emit(0x48); emit(0xbe); emit64((uintptr_t)data_buffer); // mov rsi, data_buffer
 	emit(0x49); emit(0xbc); emit64((uintptr_t)putchar);     // mov r12, putchar
 	emit(0x49); emit(0xbd); emit64((uintptr_t)getchar);     // mov r13, getchar
-
-	emit(0x48); emit(0x83); emit(0xec); emit(0x20); // sub rsp, 32 ; shadow space
 
 	auto cur = source;
 	while (*cur) {
