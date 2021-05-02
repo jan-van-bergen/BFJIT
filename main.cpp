@@ -192,7 +192,7 @@ int main(int arg_count, char const ** args) {
 	if (arg_count > 1) {
 		filename = args[1];
 	} else {
-		filename = "examples/mandelbrot.bf";
+		filename = "examples/helloworld.bf";
 	}
 	auto file = read_file(filename);
 
@@ -208,8 +208,15 @@ int main(int arg_count, char const ** args) {
 
 	dump();
 
+	LARGE_INTEGER time_start; QueryPerformanceCounter(&time_start);
+
 	// Execute code buffer
 	((void (*)())code_buffer_base)();
+	
+	LARGE_INTEGER time_end;  QueryPerformanceCounter(&time_end);
+	LARGE_INTEGER frequency; QueryPerformanceFrequency(&frequency); 
+	size_t delta = (time_end.QuadPart - time_start.QuadPart) * 1000000 / frequency.QuadPart;
 
-	__debugbreak();
+	printf("Finished in %zu us.\nPress any key to continue...", delta);
+	getchar();
 }
