@@ -57,7 +57,6 @@ static void compile(char const * source) {
 
 	auto cur = source;
 	while (*cur) {
-retry:
 		switch (*cur) {
 			// Fold consecutive inc/decs of pointer
 			case '>':
