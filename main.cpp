@@ -59,21 +59,60 @@ static void compile(char const * source) {
 
 	auto cur = source;
 	while (*cur) {
+retry:
 		switch (*cur) {
-			case '>': emit(0x48); emit(0xff); emit(0xc6); break; // inc rsi
-			case '<': emit(0x48); emit(0xff); emit(0xce); break; // dec rsi
+			case '>':
+			case '<': {
+				auto accum = 0;
+				for (;;) {
+					if (*cur == '>') {
+						accum++;
+					} else if (*cur == '<') {
+						accum--;
+					} else break;
+					cur++;
+				}
+				if (accum == 1) {
+					emit(0x48); emit(0xff); emit(0xc6); // inc rsi
+				} else if (accum == -1) {
+					emit(0x48); emit(0xff); emit(0xce); // dec rsi
+				} else if (accum != 0) {
+					emit(0x48); emit(0x81); emit(0xc6); emit32(accum); // add rsi, accum
+				}
+				break;
+			}
 
-			case '+': emit(0xfe); emit(0x06); break; // inc BYTE [rsi]
-			case '-': emit(0xfe); emit(0x0e); break; // dec BYTE [rsi]
+			case '+':
+			case '-': {
+				auto accum = 0;
+				for (;;) {
+					if (*cur == '+') {
+						accum++;
+					} else if (*cur == '-') {
+						accum--;
+					} else break;
+					cur++;
+				}
+				if (accum == 1) {
+					emit(0xfe); emit(0x06); // inc BYTE [rsi]
+				} else if (accum == -1) {
+					emit(0xfe); emit(0x0e); // dec BYTE [rsi]
+				} else if (accum != 0) {
+					emit(0x80); emit(0x06); emit(accum); // add BYTE [rsi], accum
+				}
+				break;
+			}
 
 			case '.': {
 				emit(0x48); emit(0x8b); emit(0x0e); // mov rcx, BYTE [rsi]
 				emit(0x41); emit(0xff); emit(0xd4); // call r12 ; putchar
+				cur++;
 				break;
 			}
 			case ',': {
 				emit(0x41); emit(0xff); emit(0xd5); // call r13 ; getchar
 				emit(0x88); emit(0x06);             // mov BYTE [rsi], al
+				cur++;
 				break;
 			}
 
@@ -85,6 +124,7 @@ static void compile(char const * source) {
 				auto offset_dst = get_code_offset();
 				branch_stack[branch_stack_size++] = { offset_src, offset_dst, code_buffer_head };
 				emit32(0);
+				cur++;
 				break;
 			}
 			case ']': {
@@ -95,12 +135,12 @@ static void compile(char const * source) {
 				// Replace sentinel jump target
 				auto rel32 = get_code_offset() - branch.offset_dst - 4;
 				memcpy(branch.sentinel, &rel32, sizeof(uint32_t));
+				cur++;
 				break;
 			}
 
-			default: break;
+			default: cur++; break;
 		}
-		cur++;
 	}
 	emit(0x48); emit(0x83); emit(0xc4); emit(0x20); // add rsp, 32 ; shadow space
 	emit(0xc3); // ret
@@ -147,7 +187,15 @@ static void dump() {
 //	__debugbreak();
 }
 
-int main() {
+int main(int arg_count, char const ** args) {
+	char const * filename = nullptr;
+	if (arg_count > 1) {
+		filename = args[1];
+	} else {
+		filename = "examples/mandelbrot.bf";
+	}
+	auto file = read_file(filename);
+
 	code_buffer_base = (uint8_t *)VirtualAllocEx(GetCurrentProcess(), 0, 1 << 16, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (code_buffer_base == nullptr) {
 		puts("ERROR: Unable to allocate virtual memory!");
@@ -155,11 +203,10 @@ int main() {
 	}
 	code_buffer_head = code_buffer_base;
 
-	auto file = read_file("examples/mandelbrot.bf");
 	compile(file.source);
 	close_file(file);
 
-//	dump();
+	dump();
 
 	// Execute code buffer
 	((void (*)())code_buffer_base)();

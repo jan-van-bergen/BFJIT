@@ -15,9 +15,13 @@ section .text
 	inc rsi
 	dec rsi
 	
+	add rsi, 0xff
+	
 	; + and -
 	inc BYTE [rsi]
 	dec BYTE [rsi]
+	
+	add BYTE [rsi], 0xff
 	
 	; .
 	mov rcx, [rsi]
