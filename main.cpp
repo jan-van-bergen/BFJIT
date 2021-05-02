@@ -61,6 +61,7 @@ static void compile(char const * source) {
 	while (*cur) {
 retry:
 		switch (*cur) {
+			// Fold consecutive inc/decs of pointer
 			case '>':
 			case '<': {
 				auto accum = 0;
@@ -82,6 +83,7 @@ retry:
 				break;
 			}
 
+			// Fold consecutive inc/decs of pointee
 			case '+':
 			case '-': {
 				auto accum = 0;
@@ -103,6 +105,7 @@ retry:
 				break;
 			}
 
+			// Output / input
 			case '.': {
 				emit(0x48); emit(0x8b); emit(0x0e); // mov rcx, BYTE [rsi]
 				emit(0x41); emit(0xff); emit(0xd4); // call r12 ; putchar
@@ -116,6 +119,7 @@ retry:
 				break;
 			}
 
+			// Loops
 			case '[': {
 				auto offset_src = get_code_offset();
 				emit(0x8a); emit(0x06); // mov al, BYTE [rsi]
@@ -142,9 +146,10 @@ retry:
 			default: cur++; break;
 		}
 	}
+	assert(branch_stack_size == 0);
+	// Exit
 	emit(0x48); emit(0x83); emit(0xc4); emit(0x20); // add rsp, 32 ; shadow space
 	emit(0xc3); // ret
-	assert(branch_stack_size == 0);
 }
 
 struct Source_File {
@@ -175,24 +180,12 @@ static void close_file(Source_File file) {
 	CloseHandle(file.handle);
 }
 
-static void dump() {
-	FILE *f;
-	fopen_s(&f, "example.bin", "wb");
-	if (f) {
-		fwrite(code_buffer_base, 1, code_buffer_head - code_buffer_base, f);
-		fclose(f);
-	}
-
-	system("objdump example.bin -D -b binary -m i386:x86-64 -M intel > dump.txt");
-//	__debugbreak();
-}
-
 int main(int arg_count, char const ** args) {
 	char const * filename = nullptr;
 	if (arg_count > 1) {
 		filename = args[1];
 	} else {
-		filename = "examples/helloworld.bf";
+		filename = "examples/mandelbrot.bf";
 	}
 	auto file = read_file(filename);
 
@@ -206,12 +199,11 @@ int main(int arg_count, char const ** args) {
 	compile(file.source);
 	close_file(file);
 
-	dump();
-
 	LARGE_INTEGER time_start; QueryPerformanceCounter(&time_start);
 
 	// Execute code buffer
-	((void (*)())code_buffer_base)();
+	auto executable_code = (void (*)())code_buffer_base;
+	executable_code();
 	
 	LARGE_INTEGER time_end;  QueryPerformanceCounter(&time_end);
 	LARGE_INTEGER frequency; QueryPerformanceFrequency(&frequency); 
